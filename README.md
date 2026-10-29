@@ -227,11 +227,14 @@ Validation checks:
 - Output: schema, ordering, types, formatting, and requested format.
 
 Severity:
+```
 ERROR = critical requirement failed
 WARNING = recoverable data-quality concern
 INFO = informational finding
+```
 
 Validation finding fields:
+```
 ROW_NUMBER: INTEGER
 COLUMN: TEXT
 RULE: TEXT
@@ -239,6 +242,7 @@ SEVERITY: TEXT
 ORIGINAL_VALUE: ANY
 OBSERVED_VALUE: ANY
 MESSAGE: TEXT
+```
 
 Validation semantics:
 
