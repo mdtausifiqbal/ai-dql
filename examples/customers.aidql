@@ -1,0 +1,60 @@
+AIDQL 1.1
+
+# Example: clean a customer list and report data-quality problems
+
+SOURCE customers {
+  TYPE     = EXCEL
+  LOCATION = "customers.xlsx"
+  OPTIONS  = { SHEET_NAME = "Customers", HEADER_ROW = 1 }
+}
+
+SCHEMA people {
+  id      : TEXT    { SOURCE = "ID", REQUIRED = true, PATTERN = "^[0-9]{6}$" }
+  name    : TEXT    { SOURCE = ["Name", "Full Name"], FORMAT = PROPER }
+  email   : TEXT    { SOURCE = "Email", FORMAT = LOWER, PATTERN = "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" }
+  age     : INTEGER { SOURCE = "Age", MIN = 0, MAX = 120 }
+  joined  : DATE    { SOURCE = "Joined", FORMAT = "dd-MM-yyyy" }
+  balance : CURRENCY(INR) { SOURCE = "Balance" }
+}
+
+PIPELINE {
+  LET raw = EXTRACT_RECORDS(customers, people)
+  STEP 1: t = DISTINCT(raw, [id])
+  STEP 2: t = ADD_COLUMN(t, category, "unassigned")
+  APPLY_RULES(t)
+  STEP 3: t = SORT_ROWS(t, joined, DESC)
+  VALIDATE(t)
+  RETURN t
+}
+
+RULE "Minor customers" {
+  PRIORITY = 1
+  WHEN age < 18
+  THEN SET category = "minor", FLAG "Customer is a minor"
+  ELSE SET category = "adult"
+}
+
+RULE "Negative balance" {
+  PRIORITY = 2
+  WHEN balance < 0
+  THEN FLAG "Negative balance" SEVERITY = WARNING
+}
+
+VALIDATE {
+  MODE             = NORMAL
+  REQUIRED_COLUMNS = [id, name, email]
+  UNIQUE_KEY       = [id]
+  ON_ERROR         = NULL_AND_REPORT
+  ON_WARNING       = REPORT
+  CHECK_TYPES      = true
+  CHECK_RULES      = true
+}
+
+OUTPUT {
+  FORMAT             = JSON
+  COLUMNS            = people
+  COLUMN_ORDER       = DEFINED
+  INCLUDE_VALIDATION = true
+  INCLUDE_SUMMARY    = true
+  NULL_DISPLAY       = "null"
+}
